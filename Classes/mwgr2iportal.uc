@@ -4,7 +4,7 @@
 	Copyright 2004, Michiel "El Muerte" Hendriks								<br />
 	Released under the Open Unreal Mod License									<br />
 	http://wiki.beyondunreal.com/wiki/OpenUnrealModLicense
-	<!-- $Id: mwgr2iportal.uc,v 1.2 2004/06/01 21:39:39 elmuerte Exp $ -->
+	<!-- $Id: mwgr2iportal.uc,v 1.3 2004/06/05 12:34:16 elmuerte Exp $ -->
 *******************************************************************************/
 class mwgr2iportal extends Info;
 
@@ -14,7 +14,7 @@ var protected mwInteraction I;
 replication
 {
 	reliable if (Role == ROLE_Authority)
-		AddInteraction, Meanwhile, ResetMW, EndGame;
+		AddInteraction, Meanwhile, ResetMW, EndGame, Crunch;
 }
 
 simulated function AddInteraction(optional string Interaction)
@@ -35,10 +35,15 @@ simulated function EndGame(coerce string msg)
 	I.EndGame(msg);
 }
 
-simulated function ResetMW(optional bool bDontRemove)
+simulated function Crunch(vector PlayerLoc)
 {
-	I.Reset(bDontRemove);
-	I = none;
+	I.Crunch(PlayerLoc);
+}
+
+simulated function ResetMW(optional bool bRemove)
+{
+	I.Reset(bRemove);
+	if (bRemove) I = none;
 }
 
 defaultproperties

@@ -5,11 +5,11 @@
 	Copyright 2004, Michiel "El Muerte" Hendriks								<br />
 	Released under the Open Unreal Mod License									<br />
 	http://wiki.beyondunreal.com/wiki/OpenUnrealModLicense
-	<!-- $Id: MutMeanwhile.uc,v 1.6 2004/06/04 22:29:31 elmuerte Exp $ -->
+	<!-- $Id: MutMeanwhile.uc,v 1.7 2004/06/05 12:34:16 elmuerte Exp $ -->
 *******************************************************************************/
 class MutMeanwhile extends Mutator config;
 
-const CVSId = "$Id: MutMeanwhile.uc,v 1.6 2004/06/04 22:29:31 elmuerte Exp $";
+const CVSId = "$Id: MutMeanwhile.uc,v 1.7 2004/06/05 12:34:16 elmuerte Exp $";
 
 /** our game rules class */
 var class<mwgr> MeanwhileGameRulesClass;
@@ -88,13 +88,18 @@ event Timer()
 	}
 	else {
 		// remove super human powers
-		Level.Game.BroadcastLocalized(none, class'SuperHumanMessage', 2, SuperHero.PlayerReplicationInfo);
-		MakePawnNormal(SuperHero);
-		SuperHero = none;
-		Level.Game.BroadcastLocalized(none, class'SuperHumanMessage', 2, SuperVillain.PlayerReplicationInfo);
-		MakePawnNormal(SuperVillain);
-		SuperVillain = none;
-
+		if (SuperHero != none)
+		{
+			Level.Game.BroadcastLocalized(none, class'SuperHumanMessage', 2, SuperHero.PlayerReplicationInfo);
+			MakePawnNormal(SuperHero);
+			SuperHero = none;
+		}
+		if (SuperVillain != none)
+		{
+			Level.Game.BroadcastLocalized(none, class'SuperHumanMessage', 2, SuperVillain.PlayerReplicationInfo);
+			MakePawnNormal(SuperVillain);
+			SuperVillain = none;
+		}
 		bSelectHumans = true;
 		SetTimer(fSuperInterval, false);
 	}
@@ -206,7 +211,7 @@ function MakePawnSuper(Controller C)
 	if (RealPawn == none) return;
 	//log("MakePawnSuper", name);
 
-	fSizeMod = (fSuperHumanMod-1.0)*2;
+	fSizeMod = 1.0+(fSuperHumanMod-1.0)*2;
 
 	RealPawn.BaseEyeHeight = RealPawn.default.BaseEyeHeight*fSizeMod;
 	RealPawn.SetCollisionSize(RealPawn.default.CollisionRadius*fSizeMod, RealPawn.default.CollisionHeight*fSizeMod);

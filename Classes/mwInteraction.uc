@@ -4,9 +4,9 @@
 	Copyright 2004, Michiel "El Muerte" Hendriks								<br />
 	Released under the Open Unreal Mod License									<br />
 	http://wiki.beyondunreal.com/wiki/OpenUnrealModLicense
-	<!-- $Id: mwInteraction.uc,v 1.4 2004/06/04 22:29:31 elmuerte Exp $ -->
+	<!-- $Id: mwInteraction.uc,v 1.5 2004/06/05 12:34:16 elmuerte Exp $ -->
 *******************************************************************************/
-class mwInteraction extends Interaction;
+class mwInteraction extends Interaction config;
 
 #EXEC AUDIO IMPORT NAME=elmw FILE=Sounds\el2.wav
 #EXEC AUDIO IMPORT NAME=eltbc FILE=Sounds\el-cont.wav
@@ -20,19 +20,32 @@ var sound sndMeanwhile;
 var sound sndToBeContinued;
 
 /** materials we use to draw our borders */
-var TexRotator texBorder, texCaption[3];
+var config TexRotator texBorder, texCaption[3];
 /** current values for the outer border rotation */
 var float texrot, rotmod;
 /** grid overlay */
-var Material Grid;
+var config Material Grid;
+/** caption texture to use */
 var int captex[2];
 
-var Font ComicFont;
+/** font used for all the text */
+var config Font ComicFont;
+
+/** available crunches */
+var config array<TexRotator> Crunches;
+/** selected crunch */
+var TexRotator SelCrunch;
+/** crunch position */
+var float CrunchPos[2];
+var vector pendingCrunchPos;
+/** draw scale, updated in the tick */
+var float CrunchSize;
+var float CrunchTime;
 
 /** the text to print */
 var array<string> lines, infostring;
 
-var bool bEndGame;
+var bool bEndGame, bCrunch;
 var float EndGameCountDown;
 
 /** initial set up */
@@ -65,6 +78,7 @@ function Meanwhile(coerce string msg)
 	split(msg, Chr(10), lines); // newline is newline
 
 	bEndGame = false;
+	bCrunch = false;
 	bVisible = true;
 	bRequiresTick = true;
 }
@@ -72,6 +86,9 @@ function Meanwhile(coerce string msg)
 /** game over */
 function Endgame(coerce string msg)
 {
+	bOldHideHUD = ViewportOwner.Actor.myHUD.bHideHUD;
+	bOldCrosshairShow = ViewportOwner.Actor.myHUD.bCrosshairShow;
+
 	texrot = frand()*1500-750;
 	if (frand() >= 0.5) rotmod = 1;
 	else rotmod = -1;
@@ -90,15 +107,36 @@ function Endgame(coerce string msg)
 	bRequiresTick = true;
 }
 
+/** draw a comic crunch on screen */
+function Crunch(vector PlayerLoc)
+{
+	log("Crunch", name);
+	bOldHideHUD = ViewportOwner.Actor.myHUD.bHideHUD;
+	bOldCrosshairShow = ViewportOwner.Actor.myHUD.bCrosshairShow;
+
+	pendingCrunchPos = PlayerLoc;
+	CrunchPos[0] = -1;
+	CrunchSize = 0.25;
+	SelCrunch = Crunches[rand(Crunches.length)];
+	SelCrunch.Rotation.Yaw = frand()*4000-2000;
+	SelCrunch.Rotation.Roll = SelCrunch.Rotation.Yaw / -2;
+	SelCrunch.Rotation.Pitch = SelCrunch.Rotation.Yaw / -2;
+	CrunchTime = 1;
+	bCrunch = true;
+	bVisible = true;
+	bRequiresTick = true;
+}
+
 /** clean up all the mess we made */
-function Reset(optional bool bDontRemove)
+function Reset(optional bool bRemove)
 {
 	//log("Reset", name);
 	bVisible = false;
 	bRequiresTick = false;
+	bCrunch = false;
 	ViewportOwner.Actor.myHUD.bHideHUD = bOldHideHUD;
 	ViewportOwner.Actor.myHUD.bCrosshairShow = bOldCrosshairShow;
-	if (!bDontRemove) Master.RemoveInteraction(self);
+	if (bRemove) Master.RemoveInteraction(self);
 }
 
 /** updat the border rotation */
@@ -111,7 +149,21 @@ function Tick(float DeltaTime)
 	}
 	if (ViewportOwner.Actor.PlayerReplicationInfo.bOnlySpectator)
 	{
-		Reset(true); // because else the mutator will become screwed up
+		Reset(); // because else the mutator will become screwed up
+		return;
+	}
+	if (bCrunch)
+	{
+		if (CrunchSize < 1)
+		{
+			CrunchSize = CrunchSize + (DeltaTime*4);
+			CrunchSize = fmin(CrunchSize, 1);
+		}
+		CrunchTime = CrunchTime-DeltaTime;
+		if (CrunchTime < 0)
+		{
+			Reset();
+		}
 		return;
 	}
 	if (texrot >= 750) rotmod = -1;
@@ -128,8 +180,27 @@ function PostRender( canvas Canvas )
 	local float TextX, TextY;
 	local float tmpx, tmpy;
 	local int i;
+	local vector v;
 
 	Canvas.Reset();
+
+	if (bCrunch) // draw CRUNCH
+	{
+		if (CrunchPos[0] == -1)
+		{
+			v = Canvas.WorldToScreen(pendingCrunchPos);
+			CrunchPos[0] = v.X;
+			CrunchPos[1] = v.Y;
+		}
+		Canvas.DrawColor = Canvas.MakeColor(255,255,255,196);
+		Canvas.SetPos(CrunchPos[0]-(float(SelCrunch.MaterialUSize())*CrunchSize/2.0),CrunchPos[1]-(float(SelCrunch.MaterialVSize())*CrunchSize/2.0));
+		Canvas.DrawTileScaled(SelCrunch, CrunchSize*(float(Canvas.SizeX)/1024.0), CrunchSize*(float(Canvas.SizeY)/768.0)); // tweaked on 1024x768
+		//tmpx = float(SelCrunch.MaterialUSize())*CrunchSize*(float(Canvas.SizeX)/1024.0);
+		//tmpy = float(SelCrunch.MaterialVSize())*CrunchSize*(float(Canvas.SizeY)/768.0);
+		//Canvas.DrawTile(SelCrunch, tmpx, tmpy, 0, 0, SelCrunch.MaterialUSize(), SelCrunch.MaterialVSize());
+		return;
+	}
+
 	// grid
 	Canvas.DrawColor = Canvas.MakeColor(255,255,255,128);
 	Canvas.SetPos(0,0);
@@ -206,7 +277,7 @@ function PostRender( canvas Canvas )
 /** level changed, force ourselfs away */
 event NotifyLevelChange()
 {
-	Reset();
+	Reset(true);
 }
 
 defaultproperties
@@ -219,4 +290,7 @@ defaultproperties
 	texCaption[2]=Material'MeanwhileTex.ToonCaption3'
 	Grid=Material'MeanwhileTex.Grid'
 	ComicFont=Font'MeanwhileTex.Comic'
+	Crunches[0]=Material'MeanwhileTex.Crunch.Crunch1'
+	Crunches[1]=Material'MeanwhileTex.Crunch.Crunch2'
+	Crunches[2]=Material'MeanwhileTex.Crunch.Crunch3'
 }

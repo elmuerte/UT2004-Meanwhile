@@ -4,9 +4,35 @@
 	Copyright 2004, Michiel "El Muerte" Hendriks								<br />
 	Released under the Open Unreal Mod License									<br />
 	http://wiki.beyondunreal.com/wiki/OpenUnrealModLicense
-	<!-- $Id: MeanwhileMsg.uc,v 1.3 2004/06/02 09:21:23 elmuerte Exp $ -->
+	<!-- $Id: MeanwhileMsg.uc,v 1.4 2004/06/05 12:34:16 elmuerte Exp $ -->
 *******************************************************************************/
 class MeanwhileMsg extends Info config(Meanwhile) parseconfig;
+
+/*
+	The following replacements are accepted (some are context sensitive):
+	%me%						current player name
+	%his_her%					"his" or "her" for the player
+	%team%						team name
+
+	- context: random player/killer/top scorer/flag carrier/mutant/bottom feeder
+	%other%						player name or "someone"
+	%ohis_her%					"his" or "her" for the other player
+	%oweapon%					other player's weapon
+	%hasflagmsg%				other has/took flag/ball message
+	%flag%						flag/ball name
+	%oteam%						team name
+
+	- context: control point
+	%cp_name%					name fo the control point
+	%cp_controller%				name of the player controlling the point
+	%cp_team%					controlling team name
+
+	- context: objective
+	%objective%					the name of the objective
+	%objective_desc%			descriptiong of the objective
+	%objective_infoa%			attack info
+	%objective_infod%			defend info
+*/
 
 /** the value of "meanwhile..." */
 var config string Meanwhile;
@@ -15,8 +41,10 @@ var config string delim;
 
 /** in case other doesn't exist, use "someone" */
 var config string Someone;
-
+/** used when no weapon name was available */
 var config string It;
+/** his and her strings */
+var config string His, Her;
 
 /** string to show when the game ends */
 var config string EndGame;
@@ -52,6 +80,7 @@ struct FlagNameEntry
 	/** the flag name */
 	var string flagname;
 };
+/** name of the "flag" for each gametype */
 var config array<FlagNameEntry> FlagNames;
 
 /** return the right name for the flag */
@@ -78,6 +107,8 @@ defaultproperties
 
 	Someone="Someone"
 	It="it"
+	His="his"
+	Her="her"
 
 	EndGame="To be continued...ÿNext issue..."
 
@@ -89,7 +120,9 @@ defaultproperties
 
 	//
 	msgKiller[0]="%other% gains another frag."
-	msgKiller[1]="%other% found a way to get rid of %me%."
+	msgKiller[1]="%other% found a way toÿget rid of %me%."
+	msgKiller[2]="%me% has been downsizedÿby %other%"
+	msgKiller[3]="%me% got to know %oweapon% up close."
 
 	//
 	msgBest[0]="%other% knows how toÿhandle the %oweapon%."
@@ -112,14 +145,15 @@ defaultproperties
 	FlagNames[4]=(gametype="XGame.xBombingRun",flagname="the ball")
 
 	//
-	msgFFlagBaseSafe[0]="Your flag is still safe"
-	msgFFlagBaseLost[0]="Your flag has been taken"
+	msgFFlagBaseSafe[0]="Your flag is still safe."
+	msgFFlagBaseLost[0]="Your flag has been taken."
 
-	msgEFlagBaseSafe[0]="The enemy's flag is safe"
-	msgEFlagBaseLost[0]="The other team lost their flag"
+	msgEFlagBaseSafe[0]="The enemy's flag is safe."
+	msgEFlagBaseLost[0]="The other team lost their flag."
 
 	//
 	msgCPnoteam[0]="Control point %cp_name%ÿbelongs to nobody."
+	msgCPnoteam[1]="One of the control pointsÿis not being controlled."
 
 	msgCPmyteam[0]="Control point %cp_name% isÿin danger because you're dead"
 	msgCPmyteam[1]="%cp_controller% still controlls point %cp_name%"
@@ -128,37 +162,51 @@ defaultproperties
 	msgCPenemyteam[1]="%cp_controller% still controlls point %cp_name%"
 
 	//
-	msgMyFinalPCAttack[0]="Your power core is under attack"
+	msgMyFinalPCAttack[0]="Your power core is under attack."
+	msgMyFinalPCAttack[1]="You're losing your power core."
 
-	msgMyFinalPC[0]="Your power core is still safe"
+	msgMyFinalPC[0]="Your power core is still safe."
+	msgMyFinalPC[1]="Nobody knows how longÿyour core will be safe."
 
-	msgOtherFinalPCAttack[0]="The enemy power core is being attacked"
+	msgOtherFinalPCAttack[0]="The enemy power coreÿis being attacked."
+	msgOtherFinalPCAttack[1]="The rest of your teamÿis trying to win."
 
-	msgOtherFinalPC[0]="Your destination is still safe"
+	msgOtherFinalPC[0]="Your destination is still safe."
+	msgOtherFinalPC[1]="The enemy power coreÿisn't within reach."
 
 	msgMyPCAttack[0]="One of your power nodes is under attack."
+	msgMyPCAttack[1]="The enemy is gaining on you."
 
 	msgMyPC[0]="This power node is holding up."
+	msgMyPC[1]="The enemy doesn'tÿknowabout his node."
 
 	msgOtherPCAttack[0]="One of the enemy's powerÿnode is under attack."
+	msgOtherPCAttack[1]="One going down, more to go."
 
 	msgOtherPC[0]="This power node is still working."
+	msgOtherPC[1]="The enemy still has anÿoperational power node."
 
 	//
-	msgObjectiveDoneA[0]="you had more luck toÿ%objective_desc%"
+	msgObjectiveDoneA[0]="You had more luck toÿ%objective_desc%."
+	msgObjectiveDoneA[1]="Remember how you completedÿthe last objective?"
 
-	msgObjectiveTodoA[0]="you have toÿ%objective_desc%"
-	msgObjectiveTodoA[1]="nobody told %me%ÿto %objective_infoa%"
+	msgObjectiveTodoA[0]="You have toÿ%objective_desc%."
+	msgObjectiveTodoA[1]="Nobody told %me%ÿto %objective_infoa%."
 
-	msgObjectiveDoneD[0]="you're messing upÿjust like with %objective%"
+	msgObjectiveDoneD[0]="You're messing upÿjust like with %objective%"
+	msgObjectiveDoneD[1]="Do you remember whatÿhappened with %objective%ÿyou FAILED!."
 
-	msgObjectiveTodoD[0]="you have toÿ%objective_infod%"
+	msgObjectiveTodoD[0]="You have toÿ%objective_infod%."
+	msgObjectiveTodoD[1]="%objective% is unguarded."
 
 	//
 	msgMutant[0]="%other% is still the mutant"
+	msgMutant[1]="%other% is trying to stay theÿmutant for the rest of the game"
 
 	//
-	msgBottomFeeder[0]="%other% is still the bottom feeder"
+	msgBottomFeeder[0]="%other% is stillÿthe bottom feeder"
+	msgBottomFeeder[1]="the bottom feederÿcould use some points"
 	msgBottomFeederSelf[0]="the bottom feeder isÿnobody else than %me%"
+	msgBottomFeederSelf[1]="you are stillÿthe bottom feeder"
 
 }

@@ -4,7 +4,7 @@
 	Copyright 2004, Michiel "El Muerte" Hendriks								<br />
 	Released under the Open Unreal Mod License									<br />
 	http://wiki.beyondunreal.com/wiki/OpenUnrealModLicense
-	<!-- $Id: mwgr.uc,v 1.6 2004/06/04 22:29:31 elmuerte Exp $ -->
+	<!-- $Id: mwgr.uc,v 1.7 2004/06/05 12:34:16 elmuerte Exp $ -->
 *******************************************************************************/
 class mwgr extends GameRules config;
 
@@ -67,40 +67,57 @@ event PreBeginPlay()
 	enable('Tick');
 }
 
-/** player died, summon the meanwhile */
-function ScoreKill(Controller Killer, Controller Killed)
+function int GetPCI(PlayerController C)
 {
 	local int i;
-	super.ScoreKill(Killer, Killed);
-	if (PlayerController(Killed) == none) return;
-	if (PlayerController(Killed).Player == none) return;
-
 	for (i = 0; i < PCI.length; i++)
 	{
-		if (PCI[i].PC == PlayerController(Killed)) break;
+		if (PCI[i].PC == C) break;
 	}
 	if (i == PCI.length)
 	{
 		PCI.length = i+1;
-		PCI[i].PC = PlayerController(Killed);
+		PCI[i].PC = C;
 	}
-
-	if (PCI[i].PC.PlayerReplicationInfo.bOnlySpectator) // became spectator
-	{
-		if (PCI[i].I != none)
-		{
-			PCI[i].I.ResetMW();
-			PCI[i].I = none;
-		}
-		return;
-	}
-
-	if (bDebug) log(Killed.PlayerReplicationInfo.PlayerName@"got killed, meanwhile...");
 	if (PCI[i].I == none)
 	{
 		PCI[i].I = spawn(PortalClass, PCI[i].PC);
 		PCI[i].I.AddInteraction();
 	}
+	return i;
+}
+
+/** player died, summon the meanwhile */
+function ScoreKill(Controller Killer, Controller Killed)
+{
+	local int i;
+	super.ScoreKill(Killer, Killed);
+
+	// do super human crunch
+	if (mwmut != none && PlayerController(Killer) != none && Killed != Killer)
+	{
+		if ((mwmut.SuperHero == Killer) ||
+			(mwmut.SuperVillain == Killer))
+		{
+			log("Crunch", name);
+			i = GetPCI(PlayerController(Killer));
+			PCI[i].I.Crunch(Killed.pawn.Location);
+		}
+	}
+
+	// no overlay
+	if (PlayerController(Killed) == none) return;
+	if (PlayerController(Killed).Player == none) return;
+
+	i = GetPCI(PlayerController(Killed));
+
+	if (PCI[i].PC.PlayerReplicationInfo.bOnlySpectator) // became spectator
+	{
+		PCI[i].I.ResetMW();
+		return;
+	}
+
+	if (bDebug) log(Killed.PlayerReplicationInfo.PlayerName@"got killed, meanwhile...");
 	if (Killed == Killer) FindMeanwhile(i);
 	else FindMeanwhile(i, Killer);
 }
@@ -118,7 +135,6 @@ function NavigationPoint FindPlayerStart( Controller Player, optional byte InTea
 				if (PCI[i].I != none)
 				{
 					PCI[i].I.ResetMW();
-					PCI[i].I = none;
 				}
 				break;
 			}
@@ -198,6 +214,11 @@ function FindMeanwhile(int idx, optional Controller Killer)
 		if (a == olda) // to prevent a run away loop
 		{
 			opt.Remove(i, 1); // remove old
+			if (opt.length == 0)
+			{
+				a = -1;
+				break;
+			}
 			i = rand(opt.length); // get new
 			a = opt[i];
 		}
@@ -254,6 +275,10 @@ function string format(coerce string msg, int idx, optional Actor A)
 
 	msg = messages.Meanwhile$NL$repl(msg, messages.delim, NL);
 	msg = repl(msg, "%me%", PCI[idx].PC.PlayerReplicationInfo.PlayerName);
+	if (PCI[idx].PC.PlayerReplicationInfo.bIsFemale) msg = repl(msg, "%his_her%", messages.her);
+		else msg = repl(msg, "%his_her%", messages.his);
+	if (PCI[idx].PC.PlayerReplicationInfo.Team != none)
+		msg = repl(msg, "%team%", PCI[idx].PC.PlayerReplicationInfo.Team.TeamName);
 
 	C = Controller(A);
 	if (C != none)
@@ -278,6 +303,10 @@ function string format(coerce string msg, int idx, optional Actor A)
 			else O = none;
 			msg = repl(msg, "%flag%", messages.getFlagName(Level.Game.Class, UnrealTeamInfo(O) == PCI[idx].PC.PlayerReplicationInfo.Team));
 		}
+		if (C.PlayerReplicationInfo.bIsFemale) msg = repl(msg, "%ohis_her%", messages.her);
+			else msg = repl(msg, "%ohis_her%", messages.his);
+		if (C.PlayerReplicationInfo.Team != none)
+			msg = repl(msg, "%oteam%", C.PlayerReplicationInfo.Team.TeamName);
 	}
 	else {
 		msg = repl(msg, "%other%", messages.Someone);
@@ -289,7 +318,10 @@ function string format(coerce string msg, int idx, optional Actor A)
 	{
 		msg = repl(msg, "%cp_name%", DP.PointName);
 		if (DP.ControllingPawn != none)
+		{
 			msg = repl(msg, "%cp_controller%", DP.ControllingPawn.Controller.PlayerReplicationInfo.PlayerName);
+			msg = repl(msg, "%cp_team%", DP.ControllingPawn.Controller.PlayerReplicationInfo.Team.TeamName);
+		}
 	}
 
 	GO = GameObjective(A);
