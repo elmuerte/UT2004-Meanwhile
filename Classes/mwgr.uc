@@ -4,7 +4,7 @@
 	Copyright 2004, Michiel "El Muerte" Hendriks								<br />
 	Released under the Open Unreal Mod License									<br />
 	http://wiki.beyondunreal.com/wiki/OpenUnrealModLicense
-	<!-- $Id -->
+	<!-- $Id: mwgr.uc,v 1.2 2004/06/01 21:39:39 elmuerte Exp $ -->
 *******************************************************************************/
 class mwgr extends GameRules config;
 
@@ -44,11 +44,16 @@ var protected MeanwhileMsg messages;
 /** newline character */
 var protected string NL;
 
+/** the meanwhile message class to spawn */
+var class<MeanwhileMsg> MeanwhileMsgClass;
+/** meanwhile to interaction portal class */
+var class<mwgr2iportal> PortalClass;
+
 event PreBeginPlay()
 {
 	super.PreBeginPlay();
 	AddToPackageMap();
-	messages = spawn(class'MeanwhileMsg');
+	messages = spawn(MeanwhileMsgClass);
 	NL = Chr(10);
 	enable('Tick');
 }
@@ -84,7 +89,7 @@ function ScoreKill(Controller Killer, Controller Killed)
 	log(Killed.PlayerReplicationInfo.PlayerName@"got killed, meanwhile...");
 	if (PCI[i].I == none)
 	{
-		PCI[i].I = spawn(class'mwgr2iportal', PCI[i].PC);
+		PCI[i].I = spawn(PortalClass, PCI[i].PC);
 		PCI[i].I.AddInteraction();
 	}
 	if (Killed == Killer) FindMeanwhile(i);
@@ -131,7 +136,7 @@ event Tick(float deltatime)
 	for (C = Level.ControllerList; C != none; C = C.nextController)
 	{
 		if (PlayerController(C) == none) continue;
-		p = spawn(class'mwgr2iportal', PCI[i].PC);
+		p = spawn(PortalClass, PCI[i].PC);
 		p.AddInteraction();
 		p.EndGame(repl(messages.EndGame, messages.delim, NL));
 	}
@@ -142,7 +147,7 @@ event Tick(float deltatime)
 function FindMeanwhile(int idx, optional Controller Killer)
 {
 	local GameTypeAction GTA;
-	local int a;
+	local int a, olda;
 	local Controller C, last;
 
 	if (!GetActions(GTA)) return;
@@ -153,7 +158,13 @@ function FindMeanwhile(int idx, optional Controller Killer)
 		{
 			case 0:	if (mwKiller(idx, a, Killer)) return; break;
 			case 1:	if (mwTopScorer(idx, a, Killer)) return; break;
+			case 2: if (mwFlagCarrier(idx, a, Killer)) return; break;
+			case 3: if (mwFlagBase(idx, a)) return; break;
+			case 4: if (mwControlPoints(idx, a)) return; break;
+			case 5: if (mwPowerCore(idx, a)) return; break;
+			case 6: if (mwObjective(idx, a)) return; break;
 		}
+		if (a == olda) a = -1; // to prevent a run away loop
 	}
 	if (a == -1) // get a random player
 	{
@@ -161,6 +172,7 @@ function FindMeanwhile(int idx, optional Controller Killer)
 		{
 			if (C == PCI[idx].PC) continue;
 			if (C.Pawn == none) continue;
+			if (!C.bIsPlayer) continue;
 			last = C;
 			if (frand() > 0.5) break;
 		}
@@ -197,17 +209,60 @@ function bool GetActions(out GameTypeAction GTA, optional coerce string gametype
 }
 
 /** format a message string */
-function string format(coerce string msg, int idx, optional Controller C)
+function string format(coerce string msg, int idx, optional Actor A)
 {
+	local Object O;
+	local Controller C;
+	local xDomPoint DP;
+	local GameObjective GO;
+
 	msg = messages.Meanwhile$NL$repl(msg, messages.delim, NL);
 	msg = repl(msg, "%me%", PCI[idx].PC.PlayerReplicationInfo.PlayerName);
+
+	C = Controller(A);
 	if (C != none)
 	{
 		msg = repl(msg, "%other%", C.PlayerReplicationInfo.PlayerName);
-		msg = repl(msg, "%oweapon%", C.Pawn.Weapon.GetHumanReadableName());
+		if (C.Pawn != none) msg = repl(msg, "%oweapon%", C.Pawn.Weapon.GetHumanReadableName());
+		else msg = repl(msg, "%oweapon%", messages.It);
+		if (InStr(msg, "%hasflagmsg%") > -1)
+		{
+			if (CTFFlag(C.PlayerReplicationInfo.HasFlag) != none)
+			{
+				O = CTFFlag(C.PlayerReplicationInfo.HasFlag).Team;
+			}
+			msg = repl(msg, "%hasflagmsg%", C.PlayerReplicationInfo.HasFlag.MessageClass.static.GetString(4, C.PlayerReplicationInfo,, O));
+		}
+		if (InStr(msg, "%flag%") > -1)
+		{
+			if (CTFFlag(C.PlayerReplicationInfo.HasFlag) != none)
+			{
+				O = CTFFlag(C.PlayerReplicationInfo.HasFlag).Team;
+			}
+			else O = none;
+			msg = repl(msg, "%flag%", messages.getFlagName(Level.Game.Class, UnrealTeamInfo(O) == PCI[idx].PC.PlayerReplicationInfo.Team));
+		}
 	}
 	else {
 		msg = repl(msg, "%other%", messages.Someone);
+		msg = repl(msg, "%oweapon%", messages.It);
+	}
+
+	DP = xDomPoint(A);
+	if (DP != none)
+	{
+		msg = repl(msg, "%cp_name%", DP.PointName);
+		if (DP.ControllingPawn != none)
+			msg = repl(msg, "%cp_controller%", DP.ControllingPawn.Controller.PlayerReplicationInfo.PlayerName);
+	}
+
+	GO = GameObjective(A);
+	if (GO != none)
+	{
+		msg = repl(msg, "%objective%", GO.ObjectiveName);
+		msg = repl(msg, "%objective_desc%", GO.ObjectiveDescription);
+		msg = repl(msg, "%objective_infoa%", GO.Objective_Info_Attacker);
+		msg = repl(msg, "%objective_infod%", GO.Objective_Info_Defender);
 	}
 
 	return msg;
@@ -222,6 +277,7 @@ function string format(coerce string msg, int idx, optional Controller C)
 
 function bool mwKiller(int idx, out int a, optional controller Other)
 {
+	log("mwKiller", name);
 	if (Other != none)
 	{
 		PCI[idx].PC.ClientSetViewTarget(Other);
@@ -237,8 +293,10 @@ function bool mwTopScorer(int idx, out int a, optional controller Other)
 {
 	local float score;
 	local Controller C, best;
+	log("mwTopScorer", name);
 	for (C = Level.ControllerList; C != none; C = C.nextController)
 	{
+		if (!C.bIsPlayer) continue;
 		if (C.PlayerReplicationInfo.Score > score)
 		{
 			score = C.PlayerReplicationInfo.Score;
@@ -256,16 +314,189 @@ function bool mwTopScorer(int idx, out int a, optional controller Other)
 	return false;
 }
 
+function bool mwFlagCarrier(int idx, out int a, optional controller Other)
+{
+	local Controller C;
+	local array<Controller> carriers;
+	log("mwFlagCarrier", name);
+	for (C = Level.ControllerList; C != none; C = C.nextController)
+	{
+		if (C == PCI[idx].PC) continue;
+		if (C.PlayerReplicationInfo.HasFlag != none)
+		{
+			carriers[carriers.length] = C;
+		}
+	}
+	if (carriers.length > 0)
+	{
+		C = carriers[rand(carriers.length)];
+		PCI[idx].PC.ClientSetViewTarget(C);
+		PCI[idx].PC.SetViewTarget(C);
+		if (C.PlayerReplicationInfo.Team == PCI[idx].PC.PlayerReplicationInfo.Team)
+			PCI[idx].I.Meanwhile(format(messages.msgCarrierFriendly[rand(messages.msgCarrierFriendly.length)], idx, C));
+			else PCI[idx].I.Meanwhile(format(messages.msgCarrierEnemy[rand(messages.msgCarrierEnemy.length)], idx, C));
+		return true;
+	}
+	a = 1;
+	return false;
+}
+
+function bool mwFlagBase(int idx, out int a, optional controller Other)
+{
+	local array<CTFBase> bases;
+	local CTFBase c;
+	log("mwFlagBase", name);
+	bases[0] = CTFBase(TeamGame(Level.Game).Teams[0].HomeBase);
+	bases[1] = CTFBase(TeamGame(Level.Game).Teams[1].HomeBase);
+	c = bases[rand(bases.length)];
+	if (C != none)
+	{
+		PCI[idx].PC.ClientSetViewTarget(C);
+		PCI[idx].PC.SetViewTarget(C);
+		if (C.myFlag.Team == PCI[idx].PC.PlayerReplicationInfo.Team)
+		{
+			if (C.bHidden) PCI[idx].I.Meanwhile(format(messages.msgFFlagBaseLost[rand(messages.msgFFlagBaseLost.length)], idx));
+			else PCI[idx].I.Meanwhile(format(messages.msgFFlagBaseSafe[rand(messages.msgFFlagBaseSafe.length)], idx));
+		}
+		else {
+			if (C.bHidden) PCI[idx].I.Meanwhile(format(messages.msgEFlagBaseLost[rand(messages.msgEFlagBaseLost.length)], idx));
+			else PCI[idx].I.Meanwhile(format(messages.msgEFlagBaseSafe[rand(messages.msgEFlagBaseSafe.length)], idx));
+		}
+		return true;
+	}
+	a = 2;
+	return false;
+}
+
+function bool mwControlPoints(int idx, out int a, optional controller Other)
+{
+	local xDomPoint c;
+	log("mwControlPoints", name);
+
+	if (frand() > 0.5) c = xDoubleDom(Level.Game).xDomPoints[0];
+	else c = xDoubleDom(Level.Game).xDomPoints[1];
+
+	if (C != none)
+	{
+		PCI[idx].PC.ClientSetViewTarget(C);
+		PCI[idx].PC.SetViewTarget(C);
+
+		if (C.ControllingTeam == none)
+		{
+			PCI[idx].I.Meanwhile(format(messages.msgCPnoteam[rand(messages.msgCPnoteam.length)], idx, C));
+		}
+		else if (C.ControllingTeam == PCI[idx].PC.PlayerReplicationInfo.Team)
+		{
+			PCI[idx].I.Meanwhile(format(messages.msgCPmyteam[rand(messages.msgCPmyteam.length)], idx, C));
+		}
+		else {
+			PCI[idx].I.Meanwhile(format(messages.msgCPenemyteam[rand(messages.msgCPenemyteam.length)], idx, C));
+		}
+		return true;
+	}
+	a = 1;
+	return false;
+}
+
+function bool mwPowerCore(int idx, out int a, optional controller Other)
+{
+	local array<ONSPowerCore> Clist;
+	local ONSPowerCore C;
+	log("mwPowerCore", name);
+
+	Clist = ONSOnslaughtGame(Level.Game).PowerCores;
+	do {
+		c = Clist[rand(Clist.length)];
+		if ((c.Health > 0) && (c.DefenderTeamIndex < 2)) break;
+		c = none;
+	} until (Clist.length == 0)
+
+ 	if (C != none)
+ 	{
+ 		if (C.bFinalCore)
+ 		{
+ 			PCI[idx].PC.ClientSetViewTarget(C);
+			PCI[idx].PC.SetViewTarget(C);
+
+ 			if (C.DefenderTeamIndex == PCI[idx].PC.PlayerReplicationInfo.Team.TeamIndex)
+ 			{
+ 				if (C.bUnderAttack) PCI[idx].I.Meanwhile(format(messages.msgMyFinalPCAttack[rand(messages.msgMyFinalPCAttack.length)], idx, C));
+ 					else PCI[idx].I.Meanwhile(format(messages.msgMyFinalPC[rand(messages.msgMyFinalPC.length)], idx, C));
+ 			}
+ 			else {
+ 				if (C.bUnderAttack) PCI[idx].I.Meanwhile(format(messages.msgOtherFinalPCAttack[rand(messages.msgOtherFinalPCAttack.length)], idx, C));
+ 					else PCI[idx].I.Meanwhile(format(messages.msgOtherFinalPC[rand(messages.msgOtherFinalPC.length)], idx, C));
+ 			}
+
+ 			return true;
+ 		}
+ 		else {
+			if (C.DefenderTeamIndex == PCI[idx].PC.PlayerReplicationInfo.Team.TeamIndex)
+ 			{
+ 				PCI[idx].PC.ClientSetViewTarget(C);
+				PCI[idx].PC.SetViewTarget(C);
+
+ 				if (C.bUnderAttack) PCI[idx].I.Meanwhile(format(messages.msgMyPCAttack[rand(messages.msgMyPCAttack.length)], idx, C));
+ 					else PCI[idx].I.Meanwhile(format(messages.msgMyPC[rand(messages.msgMyPC.length)], idx, C));
+
+ 				return true;
+ 			}
+ 			else {
+ 				PCI[idx].PC.ClientSetViewTarget(C);
+				PCI[idx].PC.SetViewTarget(C);
+
+ 				if (C.bUnderAttack) PCI[idx].I.Meanwhile(format(messages.msgOtherPCAttack[rand(messages.msgOtherPCAttack.length)], idx, C));
+ 					else PCI[idx].I.Meanwhile(format(messages.msgOtherPC[rand(messages.msgOtherPC.length)], idx, C));
+
+ 				return true;
+ 			}
+ 		}
+ 	}
+	a = 1;
+	return false;
+}
+
+function bool mwObjective(int idx, out int a, optional controller Other)
+{
+	local GameObjective O;
+	log("mwObjective", name);
+	if (frand() > 0.5) O = ASGameInfo(Level.Game).LastDisabledObjective;
+	else O = ASGameInfo(Level.Game).CurrentObjective;
+
+	if (O != none)
+	{
+		PCI[idx].PC.ClientSetViewTarget(O);
+		PCI[idx].PC.SetViewTarget(O);
+		if (ASGameInfo(Level.Game).CurrentAttackingTeam == PCI[idx].PC.PlayerReplicationInfo.Team.TeamIndex)
+		{
+			if (O.bDisabled) PCI[idx].I.Meanwhile(format(messages.msgObjectiveDoneA[rand(messages.msgObjectiveDoneA.length)], idx, O));
+				else PCI[idx].I.Meanwhile(format(messages.msgObjectiveTodoA[rand(messages.msgObjectiveTodoA.length)], idx, O));
+		}
+		else {
+			if (O.bDisabled) PCI[idx].I.Meanwhile(format(messages.msgObjectiveDoneD[rand(messages.msgObjectiveDoneD.length)], idx, O));
+				else PCI[idx].I.Meanwhile(format(messages.msgObjectiveTodoD[rand(messages.msgObjectiveTodoD.length)], idx, O));
+		}
+		return true;
+	}
+	a = 1;
+	return false;
+}
+
 defaultproperties
 {
+	MeanwhileMsgClass=class'MeanwhileMsg'
+	PortalClass=class'mwgr2iportal'
+
 	Actions[0]=(gametype="XGame.xDeathmatch",Actions=(-1,0,1))
 	Actions[1]=(gametype="XGame.xTeamGame",Actions=(-1,0,1))
 	Actions[2]=(gametype="XGame.xCTFGame",Actions=(-1,0,1,2,3))
 	Actions[3]=(gametype="XGame.xBombingRun",Actions=(-1,0,1,2))
 	Actions[4]=(gametype="XGame.xDoubleDom",Actions=(-1,0,1,4))
-	Actions[5]=(gametype="ut2k4Assault.ASGameInfo",Actions=(-1,0,1,6))
+	//Actions[5]=(gametype="ut2k4Assault.ASGameInfo",Actions=(-1,0,1,6))
+	Actions[5]=(gametype="ut2k4Assault.ASGameInfo",Actions=(6))
 	Actions[6]=(gametype="Onslaught.ONSOnslaughtGame",Actions=(-1,0,1,5))
 	Actions[7]=(gametype="SkaarjPack.Invasion",Actions=(-1,0,1))
 	Actions[8]=(gametype="bonuspack.xMutantGame",Actions=(-1,0,1,7,8))
 	Actions[9]=(gametype="bonuspack.xLastManStandingGame",Actions=(-1,0,1,1))
+	Actions[10]=(gametype="XGame.xVehicleCTFGame",Actions=(-1,0,1,2,3))
 }

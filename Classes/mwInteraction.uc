@@ -4,7 +4,7 @@
 	Copyright 2004, Michiel "El Muerte" Hendriks								<br />
 	Released under the Open Unreal Mod License									<br />
 	http://wiki.beyondunreal.com/wiki/OpenUnrealModLicense
-	<!-- $Id -->
+	<!-- $Id: mwInteraction.uc,v 1.2 2004/06/01 21:39:39 elmuerte Exp $ -->
 *******************************************************************************/
 class mwInteraction extends Interaction;
 
