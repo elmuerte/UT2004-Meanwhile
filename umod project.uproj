@@ -2,13 +2,14 @@ d:\dev\ut2004\ut2-code
 0.8
 [Group]
 name=Meanwhile
+System\Meanwhile.ini.example
 System\Meanwhile.int
 System\Meanwhile.u
 System\Meanwhile.ucl
 Textures\MeanwhileTex.utx
 [Requirement]
 product=UT2004
-version=3100
+version=3186
 developer=Epic Games, Inc.
 productURL=http://www.unrealtournament2003.com/
 versionURL=http://unreal.epicgames.com/
