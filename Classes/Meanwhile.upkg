@@ -1,0 +1,10 @@
+[Flags]
+AllowDownload=True
+ServerSideOnly=False
+ClientOptional=False
+Official=False
+
+[Package_Description]
+Meanwhile changes the game to a comic book at
+certain times.
+
