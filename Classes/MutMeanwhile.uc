@@ -5,10 +5,13 @@
 	Copyright 2004, Michiel "El Muerte" Hendriks								<br />
 	Released under the Open Unreal Mod License									<br />
 	http://wiki.beyondunreal.com/wiki/OpenUnrealModLicense
-	<!-- $Id: MutMeanwhile.uc,v 1.4 2004/06/02 21:37:03 elmuerte Exp $ -->
+	<!-- $Id: MutMeanwhile.uc,v 1.5 2004/06/03 20:57:24 elmuerte Exp $ -->
 *******************************************************************************/
 class MutMeanwhile extends Mutator config;
 
+const CVSId = "$Id: MutMeanwhile.uc,v 1.5 2004/06/03 20:57:24 elmuerte Exp $";
+
+/** our game rules class */
 var class<mwgr> MeanwhileGameRulesClass;
 
 /** Team 0's super human */
@@ -34,11 +37,14 @@ var protected bool bSelectHumans;
 /** true if super humans is enabled */
 var protected bool bSHEn;
 
+var localized string PIdesc[4], PIhelp[4];
 
 /** install our game rules class */
 event PreBeginPlay()
 {
 	Super.PreBeginPlay();
+	log("Loading"@FriendlyName@"("$CVSId$")");
+
 	Level.Game.AddGameModifier(Spawn(MeanwhileGameRulesClass));
 
 	bSHEn = bSuperHumans && Level.Game.bTeamGame;
@@ -63,6 +69,11 @@ event Timer()
 {
 	if (bSelectHumans)
 	{
+		if (Level.Game.NumPlayers+Level.Game.NumPlayers < 2)
+		{	// not enough players
+			SetTimer(fSuperInterval, false);
+			return;
+		}
 		SelectSuperHuman(0);
 		SelectSuperHuman(1);
 		if (fSuperDuration > 0)
@@ -108,10 +119,11 @@ function NotifyLogout(Controller Exiting)
 /** select a new super human */
 function SelectSuperHuman(int team)
 {
+	local array<Controller> clist;
 	local Controller C;
 	local int i;
 
-	log("SelectSuperHuman"@team, name);
+	//log("SelectSuperHuman"@team, name);
 	for (C = Level.ControllerList; C != none; C = C.nextController)
 	{
 		if (!C.bIsPlayer) continue;
@@ -121,22 +133,28 @@ function SelectSuperHuman(int team)
 			{
 				if (PastSuperHumans[i] == C) break;
 			}
-			if (i == PastSuperHumans.length) // found new
-			{
-				PastSuperHumans[i] = C;
-				if (team == 0) SuperHero = C;
-				else SuperVillain = C;
-				SpawnSuperHumanEffect(C, team);
-				return;
-			}
+			clist[clist.length] = C;
 		}
 	}
+
+	if (clist.length == 0)
+	{
+		if (PastSuperHumans.length == 0) return;
+		PastSuperHumans.length = 0;
+		SelectSuperHuman(team);
+		return;
+	}
+	C = clist[rand(clist.length)];
+	PastSuperHumans[i] = C;
+	if (team == 0) SuperHero = C;
+	else SuperVillain = C;
+	SpawnSuperHumanEffect(C, team);
 }
 
 /** make the controller super */
 function SpawnSuperHumanEffect(Controller C, int team)
 {
-	log("New super human:"@C.PlayerReplicationInfo.PlayerName, name);
+	//log("New super human:"@C.PlayerReplicationInfo.PlayerName, name);
 	BroadcastLocalizedMessage(class'SuperHumanMessage', team, C.PlayerReplicationInfo);
 	MakePawnSuper(C);
 }
@@ -146,7 +164,7 @@ function ModifyPlayer(Pawn Other)
 {
 	super.ModifyPlayer(Other);
 	if (!bSHEn) return;
-	log("ModifyPlayer", name);
+	//log("ModifyPlayer", name);
 	if (Other.Controller == SuperHero)
 	{
 		if (Other.Controller.PlayerReplicationInfo.Team.TeamIndex == 0)
@@ -174,72 +192,100 @@ function ModifyPlayer(Pawn Other)
 /** modify the player pawn to become super */
 function MakePawnSuper(Controller C)
 {
-	local SuperHumanEffect Effect;
-	log("MakePawnSuper", name);
-	if (C.Pawn == none) return;
-	//TODO: check for vehicles
-	C.Pawn.BaseEyeHeight = C.Pawn.default.BaseEyeHeight*fSuperHumanMod;
-	//C.Pawn.CollisionHeight = C.Pawn.default.CollisionHeight*fSuperHumanMod;
-	C.Pawn.GroundSpeed = C.Pawn.default.GroundSpeed*fSuperHumanMod;
-	C.Pawn.AirSpeed = C.Pawn.default.AirSpeed*fSuperHumanMod;
-	C.Pawn.WaterSpeed = C.Pawn.default.WaterSpeed*fSuperHumanMod;
-	C.Pawn.AccelRate = C.Pawn.default.AccelRate*fSuperHumanMod;
-	C.Pawn.JumpZ = C.Pawn.default.JumpZ*fSuperHumanMod;
-	C.Pawn.HealthMax = C.Pawn.default.HealthMax*fSuperHumanMod;
-	C.Pawn.Health = C.Pawn.HealthMax;
-	C.Pawn.SuperHealthMax = C.Pawn.default.SuperHealthMax*fSuperHumanMod;
-	C.Pawn.CrouchHeight = C.Pawn.default.CrouchHeight*fSuperHumanMod;
-	C.Pawn.SetDrawScale(C.Pawn.default.DrawScale*fSuperHumanMod);
-
-	if (C.Pawn.Role == ROLE_Authority)
+	local Pawn RealPawn;
+	if (Vehicle(C.Pawn) != none)
 	{
-		if (C == SuperHero) Effect = SuperHeroEffect;
-		else Effect = SuperVillainEffect;
-		if (Effect != none) Effect.Destroy();
-        Effect = Spawn(class'SuperHumanEffect', C.Pawn,, C.Pawn.Location, C.Pawn.Rotation);
-    }
+		RealPawn = Vehicle(C.Pawn).Driver;
+	}
+	else RealPawn = C.Pawn;
+	if (RealPawn == none) return;
+	//log("MakePawnSuper", name);
 
-}
+	RealPawn.BaseEyeHeight = RealPawn.default.BaseEyeHeight*fSuperHumanMod;
+	RealPawn.SetCollisionSize(RealPawn.default.CollisionRadius*fSuperHumanMod, RealPawn.default.CollisionHeight*fSuperHumanMod);
+	RealPawn.GroundSpeed = RealPawn.default.GroundSpeed*fSuperHumanMod;
+	RealPawn.AirSpeed = RealPawn.default.AirSpeed*fSuperHumanMod;
+	RealPawn.WaterSpeed = RealPawn.default.WaterSpeed*fSuperHumanMod;
+	RealPawn.AccelRate = RealPawn.default.AccelRate*fSuperHumanMod;
+	RealPawn.JumpZ = RealPawn.default.JumpZ*fSuperHumanMod;
+	RealPawn.HealthMax = RealPawn.default.HealthMax*fSuperHumanMod;
+	RealPawn.Health = RealPawn.HealthMax;
+	RealPawn.SuperHealthMax = RealPawn.default.SuperHealthMax*fSuperHumanMod;
+	RealPawn.CrouchHeight = RealPawn.default.CrouchHeight*fSuperHumanMod;
+	RealPawn.SetDrawScale(RealPawn.default.DrawScale*fSuperHumanMod);
 
-function MakePawnNormal(Controller C)
-{
-	log("MakePawnNormal", name);
-	if (C.Pawn == none) return;
-	//TODO: check for vehicles
-	C.Pawn.BaseEyeHeight = C.Pawn.default.BaseEyeHeight;
-	//C.Pawn.CollisionHeight = C.Pawn.default.CollisionHeight;
-	C.Pawn.GroundSpeed = C.Pawn.default.GroundSpeed;
-	C.Pawn.AirSpeed = C.Pawn.default.AirSpeed;
-	C.Pawn.WaterSpeed = C.Pawn.default.WaterSpeed;
-	C.Pawn.AccelRate = C.Pawn.default.AccelRate;
-	C.Pawn.JumpZ = C.Pawn.default.JumpZ;
-	C.Pawn.HealthMax = C.Pawn.default.HealthMax;
-	C.Pawn.SuperHealthMax = C.Pawn.default.SuperHealthMax;
-	C.Pawn.CrouchHeight = C.Pawn.default.CrouchHeight;
-	C.Pawn.SetDrawScale(C.Pawn.default.DrawScale);
-
-	if (C.Pawn.Role == ROLE_Authority)
+	if (RealPawn.Role == ROLE_Authority)
 	{
 		if (C == SuperHero)
 		{
-			if (SuperHeroEffect != none) SuperHeroEffect.Destroy();
+			//if (SuperHeroEffect != none) SuperHeroEffect.Die();
+			SuperHeroEffect = Spawn(class'SuperHumanEffect', RealPawn,, RealPawn.Location, RealPawn.Rotation);
+		}
+		else {
+			//if (SuperVillainEffect != none) SuperVillainEffect.Die();
+			SuperVillainEffect = Spawn(class'SuperHumanEffect', RealPawn,, RealPawn.Location, RealPawn.Rotation);
+		}
+	}
+
+}
+
+/** return the human to the normal state */
+function MakePawnNormal(Controller C)
+{
+	local Pawn RealPawn;
+	if (Vehicle(C.Pawn) != none)
+	{
+		RealPawn = Vehicle(C.Pawn).Driver;
+	}
+	else RealPawn = C.Pawn;
+	if (RealPawn == none) return;
+	//log("MakePawnNormal", name);
+
+	RealPawn.BaseEyeHeight = RealPawn.default.BaseEyeHeight;
+	RealPawn.SetCollisionSize(RealPawn.default.CollisionRadius, RealPawn.default.CollisionHeight);
+	RealPawn.GroundSpeed = RealPawn.default.GroundSpeed;
+	RealPawn.AirSpeed = RealPawn.default.AirSpeed;
+	RealPawn.WaterSpeed = RealPawn.default.WaterSpeed;
+	RealPawn.AccelRate = RealPawn.default.AccelRate;
+	RealPawn.JumpZ = RealPawn.default.JumpZ;
+	RealPawn.HealthMax = RealPawn.default.HealthMax;
+	RealPawn.SuperHealthMax = RealPawn.default.SuperHealthMax;
+	RealPawn.CrouchHeight = RealPawn.default.CrouchHeight;
+	RealPawn.SetDrawScale(RealPawn.default.DrawScale);
+
+	if (RealPawn.Role == ROLE_Authority)
+	{
+		if (C == SuperHero)
+		{
+			if (SuperHeroEffect != none) SuperHeroEffect.Die();
 			SuperHeroEffect = none;
 		}
 		else {
-			if (SuperVillainEffect != none) SuperVillainEffect.Destroy();
+			if (SuperVillainEffect != none) SuperVillainEffect.Die();
 			SuperVillainEffect = none;
 		}
-    }
+	}
 }
 
 static function FillPlayInfo(PlayInfo PlayInfo)
 {
 	super.FillPlayInfo(PlayInfo);
+	PlayInfo.AddSetting(default.GroupName, "bSuperHumans", 		default.PIdesc[0], 5, 1, "Check");
+	PlayInfo.AddSetting(default.GroupName, "fSuperHumanMod", 	default.PIdesc[1], 5, 1, "Text", "5;1:10");
+	PlayInfo.AddSetting(default.GroupName, "fSuperInterval", 	default.PIdesc[2], 5, 1, "Text", "5;0:9999");
+	PlayInfo.AddSetting(default.GroupName, "fSuperDuration", 	default.PIdesc[3], 5, 1, "Text", "5;0:9999");
 	default.MeanwhileGameRulesClass.static.FillPlayInfo(PlayInfo);
 }
 
 static event string GetDescriptionText(string PropName)
 {
+	switch (PropName)
+	{
+		case "bSuperHumans":	return default.PIhelp[0];
+		case "fSuperHumanMod":	return default.PIhelp[1];
+		case "fSuperinterval":	return default.PIhelp[2];
+		case "fSuperDuration":	return default.PIhelp[3];
+	}
 	return "";
 }
 
@@ -247,12 +293,21 @@ DefaultProperties
 {
 	MeanwhileGameRulesClass=class'mwgr';
 
-	FriendlyName="Meanwhile"
+	FriendlyName="Meanwhile..."
 	GroupName="Meanwhile"
-	Description="Meanwhile..."
+	Description="Meanwhile... super villain El Muerte continues to move onward to Earth. Can you stop him?"
+
+	PIdesc[0]="Enable super humans"
+	PIhelp[0]="Will choose a super hero and super villain at set intervals, only available for team games."
+	PIdesc[1]="Super human modification factor"
+	PIhelp[1]="Controlls with what multiplier the super humans will be modified."
+	PIdesc[2]="Selection delay"
+	PIhelp[2]="Time to wait before selecting super humans."
+	PIdesc[3]="Duration"
+	PIhelp[3]="Duration of the super powers."
 
 	bSuperHumans=true
 	fSuperHumanMod=1.5
-	fSuperinterval=60
+	fSuperinterval=120
 	fSuperDuration=60
 }

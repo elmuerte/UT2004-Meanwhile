@@ -4,7 +4,7 @@
 	Copyright 2004, Michiel "El Muerte" Hendriks								<br />
 	Released under the Open Unreal Mod License									<br />
 	http://wiki.beyondunreal.com/wiki/OpenUnrealModLicense
-	<!-- $Id: mwgr.uc,v 1.4 2004/06/02 15:52:09 elmuerte Exp $ -->
+	<!-- $Id: mwgr.uc,v 1.5 2004/06/03 20:57:24 elmuerte Exp $ -->
 *******************************************************************************/
 class mwgr extends GameRules config;
 
@@ -49,6 +49,9 @@ var class<MeanwhileMsg> MeanwhileMsgClass;
 /** meanwhile to interaction portal class */
 var class<mwgr2iportal> PortalClass;
 
+/** enable debug logging */
+var config bool bDebug;
+
 //!Localization
 var localized string PIname[2], PIdesc[2];
 
@@ -89,7 +92,7 @@ function ScoreKill(Controller Killer, Controller Killed)
 		return;
 	}
 
-	log(Killed.PlayerReplicationInfo.PlayerName@"got killed, meanwhile...");
+	if (bDebug) log(Killed.PlayerReplicationInfo.PlayerName@"got killed, meanwhile...");
 	if (PCI[i].I == none)
 	{
 		PCI[i].I = spawn(PortalClass, PCI[i].PC);
@@ -293,7 +296,7 @@ function string format(coerce string msg, int idx, optional Actor A)
 
 function bool mwKiller(int idx, out int a, optional controller Other)
 {
-	log("mwKiller", name);
+	if (bDebug) log("mwKiller", name);
 	if (Other != none)
 	{
 		PCI[idx].PC.ClientSetViewTarget(Other);
@@ -308,7 +311,7 @@ function bool mwTopScorer(int idx, out int a, optional controller Other)
 {
 	local float score;
 	local Controller C, best;
-	log("mwTopScorer", name);
+	if (bDebug) log("mwTopScorer", name);
 	for (C = Level.ControllerList; C != none; C = C.nextController)
 	{
 		if (!C.bIsPlayer) continue;
@@ -332,7 +335,7 @@ function bool mwFlagCarrier(int idx, out int a, optional controller Other)
 {
 	local Controller C;
 	local array<Controller> carriers;
-	log("mwFlagCarrier", name);
+	if (bDebug) log("mwFlagCarrier", name);
 	for (C = Level.ControllerList; C != none; C = C.nextController)
 	{
 		if (C == PCI[idx].PC) continue;
@@ -358,7 +361,7 @@ function bool mwFlagBase(int idx, out int a, optional controller Other)
 {
 	local array<CTFBase> bases;
 	local CTFBase c;
-	log("mwFlagBase", name);
+	if (bDebug) log("mwFlagBase", name);
 	bases[0] = CTFBase(TeamGame(Level.Game).Teams[0].HomeBase);
 	bases[1] = CTFBase(TeamGame(Level.Game).Teams[1].HomeBase);
 	c = bases[rand(bases.length)];
@@ -383,7 +386,7 @@ function bool mwFlagBase(int idx, out int a, optional controller Other)
 function bool mwControlPoints(int idx, out int a, optional controller Other)
 {
 	local xDomPoint c;
-	log("mwControlPoints", name);
+	if (bDebug) log("mwControlPoints", name);
 
 	if (frand() > 0.5) c = xDoubleDom(Level.Game).xDomPoints[0];
 	else c = xDoubleDom(Level.Game).xDomPoints[1];
@@ -413,7 +416,7 @@ function bool mwPowerCore(int idx, out int a, optional controller Other)
 {
 	local array<ONSPowerCore> Clist;
 	local ONSPowerCore C;
-	log("mwPowerCore", name);
+	if (bDebug) log("mwPowerCore", name);
 
 	Clist = ONSOnslaughtGame(Level.Game).PowerCores;
 	do {
@@ -469,7 +472,7 @@ function bool mwPowerCore(int idx, out int a, optional controller Other)
 function bool mwObjective(int idx, out int a, optional controller Other)
 {
 	local GameObjective O;
-	log("mwObjective", name);
+	if (bDebug) log("mwObjective", name);
 	if (frand() > 0.5) O = ASGameInfo(Level.Game).LastDisabledObjective;
 	else O = ASGameInfo(Level.Game).CurrentObjective;
 
@@ -493,7 +496,7 @@ function bool mwObjective(int idx, out int a, optional controller Other)
 
 function bool mwMutant(int idx, out int a, optional controller Other)
 {
-	log("mwMutant", name);
+	if (bDebug) log("mwMutant", name);
 	if (xMutantGame(Level.Game).CurrentMutant != none)
 	{
 		PCI[idx].PC.ClientSetViewTarget(xMutantGame(Level.Game).CurrentMutant);
@@ -506,7 +509,7 @@ function bool mwMutant(int idx, out int a, optional controller Other)
 
 function bool mwBottomFeeder(int idx, out int a, optional controller Other)
 {
-	log("mwMutant", name);
+	if (bDebug) log("mwMutant", name);
 	if (xMutantGame(Level.Game).CurrentBottomFeeder != none)
 	{
 		PCI[idx].PC.ClientSetViewTarget(xMutantGame(Level.Game).CurrentBottomFeeder);
@@ -521,6 +524,7 @@ function bool mwBottomFeeder(int idx, out int a, optional controller Other)
 static function FillPlayInfo(PlayInfo PlayInfo)
 {
 	super.FillPlayInfo(PlayInfo);
+	//TODO: doesn't work just yet
 	PlayInfo.AddSetting(class'MutMeanwhile'.default.GroupName, "Actions", default.PIname[0], 5, 1, "Custom", ";;");
 
 	default.MeanwhileMsgClass.static.FillPlayInfo(PlayInfo);
@@ -540,6 +544,8 @@ defaultproperties
 {
 	MeanwhileMsgClass=class'MeanwhileMsg'
 	PortalClass=class'mwgr2iportal'
+
+	bDebug=false
 
 	PIname[0]="Actions"
 	PIdesc[0]="Set the actions that can be used per gametype"

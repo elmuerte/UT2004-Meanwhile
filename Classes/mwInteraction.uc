@@ -4,7 +4,7 @@
 	Copyright 2004, Michiel "El Muerte" Hendriks								<br />
 	Released under the Open Unreal Mod License									<br />
 	http://wiki.beyondunreal.com/wiki/OpenUnrealModLicense
-	<!-- $Id: mwInteraction.uc,v 1.2 2004/06/01 21:39:39 elmuerte Exp $ -->
+	<!-- $Id: mwInteraction.uc,v 1.3 2004/06/03 20:57:24 elmuerte Exp $ -->
 *******************************************************************************/
 class mwInteraction extends Interaction;
 
@@ -20,14 +20,14 @@ var sound sndMeanwhile;
 var sound sndToBeContinued;
 
 /** materials we use to draw our borders */
-var TexRotator texBorder, texCaption;
+var TexRotator texBorder, texCaption[3];
 /** current values for the outer border rotation */
 var float texrot, rotmod;
 /** grid overlay */
 var Material Grid;
+var int captex[2];
 
 var Font ComicFont;
-var string ComicFontName;
 
 /** the text to print */
 var array<string> lines, infostring;
@@ -38,8 +38,7 @@ var float EndGameCountDown;
 /** initial set up */
 event Initialized()
 {
-	//log("Initialized", name);
-	ComicFont = font(DynamicLoadObject(ComicFontName, class'Font'));
+	super.Initialized();
 }
 
 /** active the meanwhile stuff */
@@ -60,6 +59,9 @@ function Meanwhile(coerce string msg)
 	texBorder.Rotation.Roll = texrot/-2;
 	texBorder.Rotation.Yaw = texrot;
 
+	captex[0] = rand(3);
+	captex[1] = rand(3);
+
 	split(msg, Chr(10), lines); // newline is newline
 
 	bEndGame = false;
@@ -76,6 +78,9 @@ function Endgame(coerce string msg)
 	texBorder.Rotation.Pitch = texrot/-2;
 	texBorder.Rotation.Roll = texrot/-2;
 	texBorder.Rotation.Yaw = texrot;
+
+	captex[0] = rand(3);
+	captex[1] = rand(3);
 
 	split(msg, Chr(10), infostring); // newline is newline
 
@@ -150,8 +155,7 @@ function PostRender( canvas Canvas )
 		// Caption frame
 		Canvas.DrawColor = Canvas.MakeColor(255,255,255,228);
 		Canvas.SetPos(0.08*Canvas.SizeX, 0.08*Canvas.SizeY);
-		texCaption.Rotation.Yaw = 0;
-		Canvas.DrawTile(texCaption, TextX*1.3, TextY*lines.length*1.3, 0, 0, 256, 128);
+		Canvas.DrawTile(texCaption[captex[0]], TextX*1.3, TextY*lines.length*1.3, 0, 0, 256, 128);
 		// draw Text
 		Canvas.DrawColor = Canvas.MakeColor(0,0,0,255);
 		for (i = 0; i < lines.length; i++)
@@ -189,7 +193,7 @@ function PostRender( canvas Canvas )
 	// Caption frame
 	Canvas.DrawColor = Canvas.MakeColor(255,255,255,228);
 	Canvas.SetPos(Canvas.SizeX*0.85-TextX, Canvas.SizeY*0.91-(TextY*infostring.length));
-	Canvas.DrawTile(texCaption, TextX*1.3, TextY*infostring.length*1.3, 0, 0, 256, 128);
+	Canvas.DrawTile(texCaption[captex[1]], TextX*1.3, TextY*infostring.length*1.3, 0, 0, 256, 128);
 	// draw Text
 	Canvas.DrawColor = Canvas.MakeColor(0,0,0,255);
 	for (i = 0; i < infostring.length; i++)
@@ -210,7 +214,9 @@ defaultproperties
 	sndMeanwhile=sound'elmw'
 	sndToBeContinued=sound'eltbc'
 	texBorder=Material'MeanwhileTex.ToonBorder'
-	texCaption=Material'MeanwhileTex.ToonCaption'
+	texCaption[0]=Material'MeanwhileTex.ToonCaption1'
+	texCaption[1]=Material'MeanwhileTex.ToonCaption2'
+	texCaption[2]=Material'MeanwhileTex.ToonCaption3'
 	Grid=Material'MeanwhileTex.Grid'
-	ComicFontName="MeanwhileTex.Comic"
+	ComicFont=Font'MeanwhileTex.Comic'
 }

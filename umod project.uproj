@@ -5,6 +5,7 @@ name=Meanwhile
 System\Meanwhile.int
 System\Meanwhile.u
 System\Meanwhile.ucl
+Textures\MeanwhileTex.utx
 [Requirement]
 product=UT2004
 version=3100
