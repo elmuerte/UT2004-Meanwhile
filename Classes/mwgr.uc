@@ -4,7 +4,7 @@
 	Copyright 2004, Michiel "El Muerte" Hendriks								<br />
 	Released under the Open Unreal Mod License									<br />
 	http://wiki.beyondunreal.com/wiki/OpenUnrealModLicense
-	<!-- $Id: mwgr.uc,v 1.3 2004/06/02 09:21:23 elmuerte Exp $ -->
+	<!-- $Id: mwgr.uc,v 1.4 2004/06/02 15:52:09 elmuerte Exp $ -->
 *******************************************************************************/
 class mwgr extends GameRules config;
 
@@ -521,7 +521,7 @@ function bool mwBottomFeeder(int idx, out int a, optional controller Other)
 static function FillPlayInfo(PlayInfo PlayInfo)
 {
 	super.FillPlayInfo(PlayInfo);
-	PlayInfo.AddSetting(class'MutMeanwhile'.default.GroupName, "Actions", default.PIname[0], 50, 1, "custom", "Meanwhile.MeanwhileConfig");
+	PlayInfo.AddSetting(class'MutMeanwhile'.default.GroupName, "Actions", default.PIname[0], 5, 1, "Custom", ";;");
 
 	default.MeanwhileMsgClass.static.FillPlayInfo(PlayInfo);
 	default.PortalClass.static.FillPlayInfo(PlayInfo);
@@ -542,7 +542,7 @@ defaultproperties
 	PortalClass=class'mwgr2iportal'
 
 	PIname[0]="Actions"
-	PIdesc[1]="Set the actions that can be used per gametype"
+	PIdesc[0]="Set the actions that can be used per gametype"
 
 	Actions[0]=(gametype="XGame.xDeathmatch",Actions=(-1,0,1))
 	Actions[1]=(gametype="XGame.xTeamGame",Actions=(-1,0,1))

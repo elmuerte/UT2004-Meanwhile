@@ -1,0 +1,26 @@
+d:\dev\ut2004\ut2-code
+0.8
+[Group]
+name=Meanwhile
+System\Meanwhile.int
+System\Meanwhile.u
+System\Meanwhile.ucl
+[Requirement]
+product=UT2004
+version=3100
+developer=Epic Games, Inc.
+productURL=http://www.unrealtournament2003.com/
+versionURL=http://unreal.epicgames.com/
+developerURL=http://www.epicgames.com/
+[Product]
+product=Meanwhile...
+version=100
+developer=Michiel "El Muerte" Hendriks
+productURL=http://meanwhile.elmuerte.com
+versionURL=http://meanwhile.elmuerte.com/files/meanwhile-v100-ut4mod.zip
+developerURL=http://meanwhile.elmuerte.com/
+readme=Help\Meanwhile.html
+title=Meanwhile... setup
+cleanup=True
+logo=Help\Meanwhile.bmp
+archive=Meanwhile.ut4mod
