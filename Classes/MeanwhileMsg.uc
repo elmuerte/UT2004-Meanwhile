@@ -4,7 +4,7 @@
 	Copyright 2004, Michiel "El Muerte" Hendriks								<br />
 	Released under the Open Unreal Mod License									<br />
 	http://wiki.beyondunreal.com/wiki/OpenUnrealModLicense
-	<!-- $Id: MeanwhileMsg.uc,v 1.2 2004/06/01 21:39:39 elmuerte Exp $ -->
+	<!-- $Id: MeanwhileMsg.uc,v 1.3 2004/06/02 09:21:23 elmuerte Exp $ -->
 *******************************************************************************/
 class MeanwhileMsg extends Info config(Meanwhile) parseconfig;
 
@@ -38,6 +38,10 @@ var config array<string> msgMyFinalPCAttack, msgMyFinalPC, msgOtherFinalPCAttack
 	msgMyPCAttack, msgMyPC, msgOtherPCAttack, msgOtherPC;
 /** action id = 6 */
 var config array<string> msgObjectiveDoneA, msgObjectiveTodoA, msgObjectiveDoneD, msgObjectiveTodoD;
+/** action id = 7 */
+var config array<string> msgMutant;
+/** action id = 8 */
+var config array<string> msgBottomFeeder, msgBottomFeederSelf;
 
 struct FlagNameEntry
 {
@@ -149,5 +153,12 @@ defaultproperties
 	msgObjectiveDoneD[0]="you're messing upÿjust like with %objective%"
 
 	msgObjectiveTodoD[0]="you have toÿ%objective_infod%"
+
+	//
+	msgMutant[0]="%other% is still the mutant"
+
+	//
+	msgBottomFeeder[0]="%other% is still the bottom feeder"
+	msgBottomFeederSelf[0]="the bottom feeder isÿnobody else than %me%"
 
 }

@@ -4,7 +4,7 @@
 	Copyright 2004, Michiel "El Muerte" Hendriks								<br />
 	Released under the Open Unreal Mod License									<br />
 	http://wiki.beyondunreal.com/wiki/OpenUnrealModLicense
-	<!-- $Id: mwgr.uc,v 1.2 2004/06/01 21:39:39 elmuerte Exp $ -->
+	<!-- $Id: mwgr.uc,v 1.3 2004/06/02 09:21:23 elmuerte Exp $ -->
 *******************************************************************************/
 class mwgr extends GameRules config;
 
@@ -48,6 +48,9 @@ var protected string NL;
 var class<MeanwhileMsg> MeanwhileMsgClass;
 /** meanwhile to interaction portal class */
 var class<mwgr2iportal> PortalClass;
+
+//!Localization
+var localized string PIname[2], PIdesc[2];
 
 event PreBeginPlay()
 {
@@ -118,6 +121,7 @@ function NavigationPoint FindPlayerStart( Controller Player, optional byte InTea
 	return Super.FindPlayerStart(Player,InTeam,incomingName);
 }
 
+/** check endgame */
 event Tick(float deltatime)
 {
 	local int i;
@@ -147,13 +151,18 @@ event Tick(float deltatime)
 function FindMeanwhile(int idx, optional Controller Killer)
 {
 	local GameTypeAction GTA;
-	local int a, olda;
+	local int a, olda, i;
 	local Controller C, last;
+	local array<int> opt;
 
 	if (!GetActions(GTA)) return;
-	a = GTA.Actions[rand(GTA.Actions.Length)];
+	opt = GTA.Actions;
+
+	i = rand(opt.length);
+	a = opt[i];
 	while (a >= 0)
 	{
+		olda = a;
 		switch (a)
 		{
 			case 0:	if (mwKiller(idx, a, Killer)) return; break;
@@ -163,8 +172,15 @@ function FindMeanwhile(int idx, optional Controller Killer)
 			case 4: if (mwControlPoints(idx, a)) return; break;
 			case 5: if (mwPowerCore(idx, a)) return; break;
 			case 6: if (mwObjective(idx, a)) return; break;
+			case 7: if (mwMutant(idx, a)) return; break;
+			case 8: if (mwBottomFeeder(idx, a)) return; break;
 		}
-		if (a == olda) a = -1; // to prevent a run away loop
+		if (a == olda) // to prevent a run away loop
+		{
+			opt.Remove(i, 1); // remove old
+			i = rand(opt.length); // get new
+			a = opt[i];
+		}
 	}
 	if (a == -1) // get a random player
 	{
@@ -285,7 +301,6 @@ function bool mwKiller(int idx, out int a, optional controller Other)
 		PCI[idx].I.Meanwhile(format(messages.msgKiller[rand(messages.msgKiller.length)], idx, Other));
 		return true;
 	}
-	a = -1;
 	return false;
 }
 
@@ -310,7 +325,6 @@ function bool mwTopScorer(int idx, out int a, optional controller Other)
 		PCI[idx].I.Meanwhile(format(messages.msgBest[rand(messages.msgBest.length)], idx, best));
 		return true;
 	}
-	a = 0;
 	return false;
 }
 
@@ -337,7 +351,6 @@ function bool mwFlagCarrier(int idx, out int a, optional controller Other)
 			else PCI[idx].I.Meanwhile(format(messages.msgCarrierEnemy[rand(messages.msgCarrierEnemy.length)], idx, C));
 		return true;
 	}
-	a = 1;
 	return false;
 }
 
@@ -364,7 +377,6 @@ function bool mwFlagBase(int idx, out int a, optional controller Other)
 		}
 		return true;
 	}
-	a = 2;
 	return false;
 }
 
@@ -394,7 +406,6 @@ function bool mwControlPoints(int idx, out int a, optional controller Other)
 		}
 		return true;
 	}
-	a = 1;
 	return false;
 }
 
@@ -452,7 +463,6 @@ function bool mwPowerCore(int idx, out int a, optional controller Other)
  			}
  		}
  	}
-	a = 1;
 	return false;
 }
 
@@ -478,8 +488,52 @@ function bool mwObjective(int idx, out int a, optional controller Other)
 		}
 		return true;
 	}
-	a = 1;
 	return false;
+}
+
+function bool mwMutant(int idx, out int a, optional controller Other)
+{
+	log("mwMutant", name);
+	if (xMutantGame(Level.Game).CurrentMutant != none)
+	{
+		PCI[idx].PC.ClientSetViewTarget(xMutantGame(Level.Game).CurrentMutant);
+		PCI[idx].PC.SetViewTarget(xMutantGame(Level.Game).CurrentMutant);
+		PCI[idx].I.Meanwhile(format(messages.msgMutant[rand(messages.msgMutant.length)], idx, xMutantGame(Level.Game).CurrentMutant));
+		return true;
+	}
+	return false;
+}
+
+function bool mwBottomFeeder(int idx, out int a, optional controller Other)
+{
+	log("mwMutant", name);
+	if (xMutantGame(Level.Game).CurrentBottomFeeder != none)
+	{
+		PCI[idx].PC.ClientSetViewTarget(xMutantGame(Level.Game).CurrentBottomFeeder);
+		PCI[idx].PC.SetViewTarget(xMutantGame(Level.Game).CurrentBottomFeeder);
+		if (xMutantGame(Level.Game).CurrentBottomFeeder == PCI[idx].PC) PCI[idx].I.Meanwhile(format(messages.msgBottomFeederSelf[rand(messages.msgBottomFeederSelf.length)], idx));
+			else PCI[idx].I.Meanwhile(format(messages.msgBottomFeeder[rand(messages.msgBottomFeeder.length)], idx, xMutantGame(Level.Game).CurrentBottomFeeder));
+		return true;
+	}
+	return false;
+}
+
+static function FillPlayInfo(PlayInfo PlayInfo)
+{
+	super.FillPlayInfo(PlayInfo);
+	PlayInfo.AddSetting(class'MutMeanwhile'.default.GroupName, "Actions", default.PIname[0], 50, 1, "custom", "Meanwhile.MeanwhileConfig");
+
+	default.MeanwhileMsgClass.static.FillPlayInfo(PlayInfo);
+	default.PortalClass.static.FillPlayInfo(PlayInfo);
+}
+
+static event string GetDescriptionText(string PropName)
+{
+	switch (PropName)
+	{
+		case "actions": return default.PIdesc[0];
+	}
+	return "";
 }
 
 defaultproperties
@@ -487,13 +541,15 @@ defaultproperties
 	MeanwhileMsgClass=class'MeanwhileMsg'
 	PortalClass=class'mwgr2iportal'
 
+	PIname[0]="Actions"
+	PIdesc[1]="Set the actions that can be used per gametype"
+
 	Actions[0]=(gametype="XGame.xDeathmatch",Actions=(-1,0,1))
 	Actions[1]=(gametype="XGame.xTeamGame",Actions=(-1,0,1))
 	Actions[2]=(gametype="XGame.xCTFGame",Actions=(-1,0,1,2,3))
 	Actions[3]=(gametype="XGame.xBombingRun",Actions=(-1,0,1,2))
 	Actions[4]=(gametype="XGame.xDoubleDom",Actions=(-1,0,1,4))
-	//Actions[5]=(gametype="ut2k4Assault.ASGameInfo",Actions=(-1,0,1,6))
-	Actions[5]=(gametype="ut2k4Assault.ASGameInfo",Actions=(6))
+	Actions[5]=(gametype="ut2k4Assault.ASGameInfo",Actions=(-1,0,1,6))
 	Actions[6]=(gametype="Onslaught.ONSOnslaughtGame",Actions=(-1,0,1,5))
 	Actions[7]=(gametype="SkaarjPack.Invasion",Actions=(-1,0,1))
 	Actions[8]=(gametype="bonuspack.xMutantGame",Actions=(-1,0,1,7,8))
