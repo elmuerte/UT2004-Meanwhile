@@ -4,7 +4,7 @@
 	Copyright 2004, Michiel "El Muerte" Hendriks								<br />
 	Released under the Open Unreal Mod License									<br />
 	http://wiki.beyondunreal.com/wiki/OpenUnrealModLicense
-	<!-- $Id: mwgr.uc,v 1.5 2004/06/03 20:57:24 elmuerte Exp $ -->
+	<!-- $Id: mwgr.uc,v 1.6 2004/06/04 22:29:31 elmuerte Exp $ -->
 *******************************************************************************/
 class mwgr extends GameRules config;
 
@@ -48,6 +48,9 @@ var protected string NL;
 var class<MeanwhileMsg> MeanwhileMsgClass;
 /** meanwhile to interaction portal class */
 var class<mwgr2iportal> PortalClass;
+
+/** used for super human checks */
+var MutMeanwhile mwmut;
 
 /** enable debug logging */
 var config bool bDebug;
@@ -148,6 +151,20 @@ event Tick(float deltatime)
 		p.EndGame(repl(messages.EndGame, messages.delim, NL));
 	}
 	disable('Tick');
+}
+
+/** modify net damage for super humans */
+function int NetDamage( int OriginalDamage, int Damage, pawn injured, pawn instigatedBy, vector HitLocation, out vector Momentum, class<DamageType> DamageType )
+{
+	if (mwmut != none && instigatedBy != none && instigatedBy.Controller != none)
+	{
+		if ((mwmut.SuperHero == instigatedBy.Controller) ||
+			(mwmut.SuperVillain == instigatedBy.Controller))
+		{
+			Damage = Damage * mwmut.fSuperHumanMod;
+		}
+	}
+	return super.NetDamage( OriginalDamage,Damage,injured,instigatedBy,HitLocation,Momentum,DamageType );
 }
 
 /** find the meanwhile action. idx is the index in the CI list */

@@ -5,11 +5,11 @@
 	Copyright 2004, Michiel "El Muerte" Hendriks								<br />
 	Released under the Open Unreal Mod License									<br />
 	http://wiki.beyondunreal.com/wiki/OpenUnrealModLicense
-	<!-- $Id: MutMeanwhile.uc,v 1.5 2004/06/03 20:57:24 elmuerte Exp $ -->
+	<!-- $Id: MutMeanwhile.uc,v 1.6 2004/06/04 22:29:31 elmuerte Exp $ -->
 *******************************************************************************/
 class MutMeanwhile extends Mutator config;
 
-const CVSId = "$Id: MutMeanwhile.uc,v 1.5 2004/06/03 20:57:24 elmuerte Exp $";
+const CVSId = "$Id: MutMeanwhile.uc,v 1.6 2004/06/04 22:29:31 elmuerte Exp $";
 
 /** our game rules class */
 var class<mwgr> MeanwhileGameRulesClass;
@@ -42,10 +42,13 @@ var localized string PIdesc[4], PIhelp[4];
 /** install our game rules class */
 event PreBeginPlay()
 {
+	local mwgr mwgr;
 	Super.PreBeginPlay();
-	log("Loading"@FriendlyName@"("$CVSId$")");
+	log("Loading"@FriendlyName@"("$CVSId$")", name);
 
-	Level.Game.AddGameModifier(Spawn(MeanwhileGameRulesClass));
+	mwgr = Spawn(MeanwhileGameRulesClass);
+	mwgr.mwmut = self;
+	Level.Game.AddGameModifier(mwgr);
 
 	bSHEn = bSuperHumans && Level.Game.bTeamGame;
  	if (bSHEn)
@@ -67,6 +70,7 @@ event Tick(float DeltaTime)
 
 event Timer()
 {
+	if (Level.Game.bGameEnded) return;
 	if (bSelectHumans)
 	{
 		if (Level.Game.NumPlayers+Level.Game.NumPlayers < 2)
@@ -193,6 +197,7 @@ function ModifyPlayer(Pawn Other)
 function MakePawnSuper(Controller C)
 {
 	local Pawn RealPawn;
+	local float fSizeMod;
 	if (Vehicle(C.Pawn) != none)
 	{
 		RealPawn = Vehicle(C.Pawn).Driver;
@@ -201,8 +206,10 @@ function MakePawnSuper(Controller C)
 	if (RealPawn == none) return;
 	//log("MakePawnSuper", name);
 
-	RealPawn.BaseEyeHeight = RealPawn.default.BaseEyeHeight*fSuperHumanMod;
-	RealPawn.SetCollisionSize(RealPawn.default.CollisionRadius*fSuperHumanMod, RealPawn.default.CollisionHeight*fSuperHumanMod);
+	fSizeMod = (fSuperHumanMod-1.0)*2;
+
+	RealPawn.BaseEyeHeight = RealPawn.default.BaseEyeHeight*fSizeMod;
+	RealPawn.SetCollisionSize(RealPawn.default.CollisionRadius*fSizeMod, RealPawn.default.CollisionHeight*fSizeMod);
 	RealPawn.GroundSpeed = RealPawn.default.GroundSpeed*fSuperHumanMod;
 	RealPawn.AirSpeed = RealPawn.default.AirSpeed*fSuperHumanMod;
 	RealPawn.WaterSpeed = RealPawn.default.WaterSpeed*fSuperHumanMod;
@@ -211,8 +218,8 @@ function MakePawnSuper(Controller C)
 	RealPawn.HealthMax = RealPawn.default.HealthMax*fSuperHumanMod;
 	RealPawn.Health = RealPawn.HealthMax;
 	RealPawn.SuperHealthMax = RealPawn.default.SuperHealthMax*fSuperHumanMod;
-	RealPawn.CrouchHeight = RealPawn.default.CrouchHeight*fSuperHumanMod;
-	RealPawn.SetDrawScale(RealPawn.default.DrawScale*fSuperHumanMod);
+	RealPawn.CrouchHeight = RealPawn.default.CrouchHeight*fSizeMod;
+	RealPawn.SetDrawScale(RealPawn.default.DrawScale*fSizeMod);
 
 	if (RealPawn.Role == ROLE_Authority)
 	{
@@ -307,7 +314,7 @@ DefaultProperties
 	PIhelp[3]="Duration of the super powers."
 
 	bSuperHumans=true
-	fSuperHumanMod=1.5
+	fSuperHumanMod=1.25
 	fSuperinterval=120
 	fSuperDuration=60
 }

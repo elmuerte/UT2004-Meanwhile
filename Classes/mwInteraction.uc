@@ -4,7 +4,7 @@
 	Copyright 2004, Michiel "El Muerte" Hendriks								<br />
 	Released under the Open Unreal Mod License									<br />
 	http://wiki.beyondunreal.com/wiki/OpenUnrealModLicense
-	<!-- $Id: mwInteraction.uc,v 1.3 2004/06/03 20:57:24 elmuerte Exp $ -->
+	<!-- $Id: mwInteraction.uc,v 1.4 2004/06/04 22:29:31 elmuerte Exp $ -->
 *******************************************************************************/
 class mwInteraction extends Interaction;
 
@@ -50,7 +50,7 @@ function Meanwhile(coerce string msg)
 	ViewportOwner.Actor.myHUD.bHideHUD = true;
 	ViewportOwner.Actor.myHUD.bCrosshairShow = false;
 
-	ViewportOwner.Actor.PlayOwnedSound(sndMeanwhile, SLOT_Talk, 0.5,, maxint);
+	if (frand() > 0.25) ViewportOwner.Actor.PlayOwnedSound(sndMeanwhile, SLOT_Talk, 0.5,, maxint);
 
 	texrot = frand()*1500-750;
 	if (frand() >= 0.5) rotmod = 1;
